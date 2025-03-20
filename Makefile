@@ -53,6 +53,10 @@ install:
 	- docker exec -u www-data -w /var/www/html/ ${STACK}_web wp core install --url=${DOMAIN} --title=${TITLE} --admin_user=${ADMIN_USER} --admin_password=${ADMIN_PASS} --admin_email=${ADMIN_EMAIL}
 	- docker exec -u 0 -w /var/www/html/ ${STACK}_web rm -Rf /var/www/html/wp-content/plugins/akismet
 	- docker exec -u 0 -w /var/www/html/ ${STACK}_web rm -f  /var/www/html/wp-content/plugins/hello.php
+	- docker exec -u www-data -w /var/www/html/ ${STACK}_web wp core update --version=6.3
+
+mysql:
+	- docker exec -it ${STACK}_db mysql -u root -p${MYSQL_ROOT_PASSWORD}
 
 rm:
 	- docker rm ${STACK}_aux -f
