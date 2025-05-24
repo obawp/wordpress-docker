@@ -1,63 +1,131 @@
 include ./.env
 export
 
+REPO_NAME := ${REPO}:php${PHP_VERSION}-${WEBSERVER}
+STACK_NAME := ${STACK}_wordpress
+STACK_VOLUME := ${VOLUME_DIR}/${STACK_NAME}
+STACK_SRC := ./src/${STACK_NAME}
+
 build:
-	- docker build -t ${REPO} ./docker-files/wordpress/
+	- docker build --build-arg PHP_VERSION=${PHP_VERSION} --build-arg WEBSERVER=${WEBSERVER} -t ${REPO_NAME} ./docker-files/wordpress/${WEBSERVER}/
 
 build_verbose:
-	- docker build --progress=plain -t ${REPO} ./docker-files/wordpress/
+	- docker build --build-arg PHP_VERSION=${PHP_VERSION} --build-arg WEBSERVER=${WEBSERVER} --progress=plain -t ${REPO_NAME} ./docker-files/wordpress/${WEBSERVER}/
 
 build_no_cache:
-	- docker build --no-cache --pull -t ${REPO} ./docker-files/wordpress/
+	- docker build --build-arg PHP_VERSION=${PHP_VERSION} --build-arg WEBSERVER=${WEBSERVER} --no-cache --pull -t ${REPO_NAME} ./docker-files/wordpress/${WEBSERVER}/
 
 login:
 	- echo ${DOCKERHUB_PASS} | docker login -u ${DOCKERHUB_USER} --password-stdin
 
 push:
-	- docker push ${REPO}
+	- docker push ${REPO_NAME}
 
 pull:
-	- docker pull ${REPO}
+	- docker pull ${REPO_NAME}
 
 run:
-	- docker run -d --name ${STACK}_aux ${REPO}
+	- docker run -d --name ${STACK_NAME}_aux ${REPO_NAME}
 
 mkdir:
-	- sudo mkdir -p ./vol/mysql/data
-	- sudo mkdir -p ./vol/wordpress/html
-	- sudo chown $$USER:www-data ./vol/mysql/data
-	- sudo chown $$USER:www-data ./vol/wordpress/html
-	- docker cp ${STACK}_aux:/var/www/html ./vol/wordpress/
+	- sudo mkdir -p ${STACK_VOLUME}/mysql/data
+	- sudo mkdir ./src/
+	- sudo chown $$USER:www-data ./src/
+	- sudo mkdir -p ${STACK_SRC}
+	- sudo chown $$USER:www-data ${STACK_VOLUME}/mysql/data
+	- sudo chown $$USER:www-data ${STACK_SRC}
+	- make --no-print-directory mkdir_certbot
+	- make --no-print-directory cp_aux
+
+cp_aux:
+	@if docker ps -a --format '{{.Names}}' | grep -q "^${STACK_NAME}_aux$$"; then \
+		sudo rm -Rf ${STACK_SRC}; \
+		docker cp ${STACK_NAME}_aux:/var/www/html ${STACK_SRC}; \
+	else \
+		echo "Skipping src folder copy of the container ${STACK_NAME}_aux."; \
+	fi
+
+mkdir_certbot:
+	- sudo mkdir -p ${STACK_VOLUME}/wordpress/certbot/www/.well-known/acme-challenge/
+	- sudo mkdir -p ${STACK_VOLUME}/wordpress/certbot/conf
+	- sudo chown $$USER:$$USER -R ${STACK_VOLUME}/wordpress/certbot
+	- sudo chmod 755 ${STACK_VOLUME}/wordpress/certbot
+	- sudo chown $$USER:$$USER ${STACK_VOLUME}/wordpress/certbot/www
+	- sudo chmod 755 ${STACK_VOLUME}/wordpress/certbot/www
+	- sudo chown $$USER:$$USER ${STACK_VOLUME}/wordpress/certbot/conf
+	- sudo chmod 755 ${STACK_VOLUME}/wordpress/certbot/conf
 
 rmdir:
-	- sudo rm -Rf ./vol/wordpress/html
-	- sudo rm -Rf ./vol/mysql/data
+	- sudo rm -Rf ${STACK_SRC}
+	- sudo rm -Rf ${STACK_VOLUME}/mysql/data
 
+
+# I tried to avoid the restart twice but I think it is the best way to do it. This change is waste of time.
 up:
-	- docker compose -p ${STACK} -f "./docker-compose.yml" up -d
+	- docker network create ${STACK_NAME}_cli_network || true
+	- docker network create ${STACK_NAME}_fpm_network || true
+	@if [ "$(WEBSERVER)" = "fpm" ]; then \
+		FPM_IP=127.0.0.1 docker compose -p ${STACK_NAME} --project-directory ./ -f ./docker-compose/docker-compose.${WEBSERVER}.yml -f ./docker-compose/fpm/docker-compose.${FPM}.yml up -d --remove-orphans; \
+		FPM_IP=$$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${STACK_NAME}_${FPM}); \
+		FPM_IP=$$FPM_IP docker compose -p ${STACK_NAME} --project-directory ./ -f ./docker-compose/docker-compose.${WEBSERVER}.yml -f ./docker-compose/fpm/docker-compose.${FPM}.yml up -d --remove-orphans; \
+	else \
+		docker compose -p ${STACK_NAME} --project-directory ./ -f ./docker-compose/docker-compose.${WEBSERVER}.yml up -d --remove-orphans; \
+	fi
 
 perm:
-	-  docker exec -u 0 ${STACK}_web chown www-data:www-data -R /var/www/html/
-	-  docker exec -u 0 ${STACK}_web find /var/www/html -type d -exec chmod 0750 {} \;
-	-  docker exec -u 0 ${STACK}_web find /var/www/html -type f -exec chmod 0640 {} \;
+	-  docker exec -u 0 ${STACK_NAME}_web chown www-data:www-data -R /var/www/html/
+	-  docker exec -u 0 ${STACK_NAME}_web find /var/www/html -type d -exec chmod 0755 {} \;
+	-  docker exec -u 0 ${STACK_NAME}_web find /var/www/html -type f -exec chmod 0644 {} \;
 
 perm_dev:
-	-  sudo chown $$USER:www-data -R ./vol/wordpress/html
-	-  sudo find ./vol/wordpress/html -type d -exec chmod 0770 {} \;
-	-  sudo find ./vol/wordpress/html -type f -exec chmod 0660 {} \;
+	-  sudo chown $$USER:www-data -R ${STACK_SRC}
+	-  sudo find ${STACK_SRC} -type d -exec chmod 0775 {} \;
+	-  sudo find ${STACK_SRC} -type f -exec chmod 0664 {} \;
 
 perm_db:
-	-  docker exec -u 0 ${STACK}_db chown -R mysql:mysql /var/lib/mysql
+	-  docker exec -u 0 ${STACK_NAME}_db chown -R mysql:mysql /var/lib/mysql
 
-install:
-	- docker exec -u www-data -w /var/www/html/ ${STACK}_web wp core install --url=${DOMAIN} --title=${TITLE} --admin_user=${ADMIN_USER} --admin_password=${ADMIN_PASS} --admin_email=${ADMIN_EMAIL}
-	- docker exec -u 0 -w /var/www/html/ ${STACK}_web rm -Rf /var/www/html/wp-content/plugins/akismet
-	- docker exec -u 0 -w /var/www/html/ ${STACK}_web rm -f  /var/www/html/wp-content/plugins/hello.php
-	- docker exec -u www-data -w /var/www/html/ ${STACK}_web wp core update --version=6.3
 
 mysql:
-	- docker exec -it ${STACK}_db mysql -u root -p${MYSQL_ROOT_PASSWORD}
+	- docker exec -it ${STACK_NAME}_db mysql -u root -p${MYSQL_ROOT_PASSWORD}
 
 rm:
-	- docker rm ${STACK}_aux -f
-	- docker compose -p ${STACK} -f "./docker-compose.yml" down
+	- docker rm ${STACK_NAME}_aux -f
+	$(eval COMPOSE_FILES=-f ./docker-compose/docker-compose.${WEBSERVER}.yml)
+	@if [ "$(WEBSERVER)" = "fpm" ]; then \
+		COMPOSE_FILES="$$COMPOSE_FILES -f ./docker-compose/fpm/docker-compose.${FPM}.yml"; \
+		docker compose -p ${STACK_NAME} --project-directory ./ $$COMPOSE_FILES down --remove-orphans; \
+	else \
+		docker compose -p ${STACK_NAME} --project-directory ./ $(COMPOSE_FILES) down --remove-orphans; \
+	fi
+	- docker network rm ${STACK_NAME}_cli_network || true
+
+bash:
+	- docker exec -it -u 0 -w /var/www/html ${STACK_NAME}_web bash
+
+# make cli cmd="wp --info"
+cli:
+	docker run -u www-data -it --rm \
+		--user "$$(docker exec ${STACK_NAME}_web id -u www-data):$$(docker exec ${STACK_NAME}_web id -g www-data)" \
+		--name ${STACK_NAME}_cli \
+		--volumes-from ${STACK_NAME}_web \
+		--network ${STACK_NAME}_cli_network \
+		-e WORDPRESS_DB_HOST=${STACK_NAME}_db \
+		-e WORDPRESS_DB_NAME=${DB_NAME} \
+		-e WORDPRESS_DB_USER=${DB_USER} \
+		-e WORDPRESS_DB_PASSWORD=${DB_PASSWORD} \
+		-e WORDPRESS_TABLE_PREFIX=${DB_PREFIX} \
+		-e HOME=/tmp \
+		wordpress:cli-php${PHP_VERSION} $(cmd)
+
+cli_config_create:
+	- make --no-print-directory cli cmd="wp config create --dbhost=${STACK_NAME}_db --dbname=${DB_NAME} --dbuser=${DB_USER} --dbpass=${DB_PASSWORD} --dbprefix=${DB_PREFIX} --skip-check"
+
+cli_install_db:
+	- make --no-print-directory cli cmd="wp core install --url=${WP_SITEURL} --title=${TITLE} --admin_user=${ADMIN_USER} --admin_password=${ADMIN_PASS} --admin_email=${ADMIN_EMAIL}"
+
+install:
+	make --no-print-directory cli_config_create
+	make --no-print-directory cli_install_db
+	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -Rf /var/www/html/wp-content/plugins/akismet
+	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -f  /var/www/html/wp-content/plugins/hello.php

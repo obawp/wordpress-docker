@@ -65,9 +65,11 @@ make install
 
 #### Ubuntu
 
-Go to `/etc/hosts` and add `0.0.0.0 wordpress.local` or `0.0.0.0 your.url` 
+Use `0.0.0.0` to expose and `127.0.0.1` to local in your `.env` file
 
-To wordpress, access this url in the browser.
+Go to `/etc/hosts` and add `127.0.0.1 wordpress.local` or `yo.ur.host.ip your.url` 
+
+To Moodle, access this url in the browser.
 
 To PhpMyAdmin ou PgAdmin use `your.url:8081`
 

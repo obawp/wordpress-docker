@@ -1,0 +1,41 @@
+services:
+  apache:
+    image: httpd:latest
+    container_name: ${STACK_NAME}_apache
+    restart: always
+    ports:
+      - "${HOST_IP}:${WEB_PORT}:${WEB_PORT}"
+      - "${HOST_IP}:${WEBS_PORT}:${WEBS_PORT}"
+    volumes:
+      - ${STACK_SRC}:/var/www/html
+      - ./config/fpm/apache/httpd.conf:/tmp/httpd.conf:ro
+      - ./config/fpm/apache/httpd-vhosts.conf:/tmp/httpd-vhosts.conf:ro
+      - ${STACK_VOLUME}/wordpress/certbot/www/:/var/www/certbot/:rw
+      - ${STACK_VOLUME}/wordpress/certbot/conf/:/etc/letsencrypt/:rw
+    environment:
+      - DOMAIN=${DOMAIN}
+      - WEB_PORT=${WEB_PORT}
+      - WEBS_PORT=${WEBS_PORT}
+    networks:
+      - fpm_network
+    entrypoint: |
+      sh -c "
+        mkdir -p /var/log/apache2 && \
+        cp /tmp/httpd.conf /usr/local/apache2/conf/httpd.conf && \
+        cp /tmp/httpd-vhosts.conf /usr/local/apache2/conf/extra/httpd-vhosts.conf && \
+        sed -i -e \"s/yourdomain.com/${DOMAIN}/g\" /usr/local/apache2/conf/extra/httpd-vhosts.conf && \
+        sed -i \"s/<VirtualHost \\\*:80>/<VirtualHost *:${WEB_PORT}>/g\" /usr/local/apache2/conf/extra/httpd-vhosts.conf && \
+        sed -i \"s/Listen 80/Listen ${WEB_PORT}\\\nListen ${WEBS_PORT}/g\" /usr/local/apache2/conf/httpd.conf && \
+        sed -i \"s/<VirtualHost \\\*:443>/<VirtualHost *:${WEBS_PORT}>/g\" /usr/local/apache2/conf/extra/httpd-vhosts.conf && \
+        ( \
+            while true; do \
+                sleep 12h \
+                apachectl graceful \
+            done \
+        ) & \
+        httpd-foreground \
+      "
+networks:
+  fpm_network:
+    external: true
+    name: ${STACK_NAME}_fpm_network

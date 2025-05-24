@@ -1,0 +1,29 @@
+services:
+  nginx:
+    image: nginx:latest
+    container_name: ${STACK_NAME}_nginx
+    restart: always
+    ports:
+      - "${HOST_IP}:${WEB_PORT}:${WEB_PORT}"
+      - "${HOST_IP}:${WEBS_PORT}:${WEBS_PORT}"
+    volumes:
+      - ${STACK_SRC}:/var/www/html
+      - ./config/fpm/nginx/default.conf:/tmp/default.conf
+      - ${STACK_VOLUME}/wordpress/certbot/www/:/var/www/certbot/:rw
+      - ${STACK_VOLUME}/wordpress/certbot/conf/:/etc/letsencrypt/:rw
+      - ./config/fpm/nginx/fastcgi.conf:/etc/nginx/fastcgi.conf:ro
+    networks:
+      - nginx_network
+    entrypoint: |
+      sh -c "
+        cp /tmp/default.conf /etc/nginx/conf.d/default.conf && \
+        sed -i -e 's/yourdomain.com/${DOMAIN}/g' /etc/nginx/conf.d/default.conf && \
+        sed -i -e 's/listen 80;/listen ${WEB_PORT};/g' /etc/nginx/conf.d/default.conf && \
+        sed -i -e 's/listen 443/listen ${WEBS_PORT}/g' /etc/nginx/conf.d/default.conf && \
+        sed -i -e 's/listen [::]:/listen [::]:${WEBS_PORT}/g' /etc/nginx/conf.d/default.conf && \
+        nginx -g 'daemon off;'
+      "
+networks:
+  fpm_network:
+    external: true
+    name: ${STACK_NAME}_fpm_network
