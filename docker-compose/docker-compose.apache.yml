@@ -35,7 +35,7 @@ services:
 
     volumes:
       - ${STACK_SRC}:/var/www/html
-      - ${STACK_VOLUME}/wordpress/certbot/www/.well-known/acme-challenge/:/var/www/html/.well-known/acme-challenge/:rw
+      - ${STACK_VOLUME}/wordpress/certbot/www//:/var/www/certbot/:rw
       - ${STACK_VOLUME}/wordpress/certbot/conf/:/etc/letsencrypt/:rw
     networks:
       - wordpress_network
@@ -87,6 +87,8 @@ services:
     ports:
       - "${PMA_PORT}:80"
     environment:
+      - PMA_SSL_CERT=/etc/letsencrypt/live/${DOMAIN}/fullchain.pem
+      - PMA_SSL_KEY=/etc/letsencrypt/live/${DOMAIN}/privkey.pem
       - PMA_HOST=db
       # - PMA_USER=${PMA_USER}
       # - PMA_PASSWORD=${PMA_PASSWORD}
@@ -96,6 +98,8 @@ services:
       - db
     networks:
       - wordpress_network
+    volumes:
+      - ${STACK_VOLUME}/wordpress/certbot/conf/:/etc/letsencrypt/:rw
     deploy:
       resources:
         limits:
