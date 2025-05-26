@@ -24,14 +24,6 @@ services:
       - WORDPRESS_TABLE_PREFIX=${DB_PREFIX}
       - WORDPRESS_DEBUG=${WORDPRESS_DEBUG}
       - WORDPRESS_CONFIG_EXTRA=require_once ABSPATH . 'config.extra.php';
-
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_PORT=${SMTP_PORT}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASS=${SMTP_PASS}
-      - SMTP_SECURE=${SMTP_SECURE}
-      - SMTP_FROM=${SMTP_FROM}
-      - SMTP_FROM_NAME=${SMTP_FROM_NAME}
     extra_hosts:
       - "wordpress.local:${FPM_IP}"
     volumes:
@@ -89,16 +81,26 @@ services:
     restart: always
     ports:
       - "${PMA_PORT}:80"
+      - "${PMAS_PORT}:443"
     environment:
       - PMA_HOST=db
       # - PMA_USER=${PMA_USER}
       # - PMA_PASSWORD=${PMA_PASSWORD}
       # - PMA_DATABASE=${PMA_DATABASE}
       # - MARIADB_ROOT_PASSWORD=${PMA_ROOT_PASSWORD}
+    command: >
+      sh -c "if [ ! -f /etc/phpmyadmin/config.secret.inc.php ]; then
+              echo \"<?php\\n\\\$$cfg['blowfish_secret'] = '$(php -r 'echo bin2hex(random_bytes(32));')';\" > /etc/phpmyadmin/config.secret.inc.php;
+            fi &&
+            a2enmod ssl && a2ensite 000-default && a2ensite default-ssl &&
+            apache2-foreground"
     depends_on:
       - db
     networks:
       - wordpress_network
+    volumes:
+      - ${STACK_VOLUME}/wordpress/certbot/conf/live/${DOMAIN}/fullchain.pem:/etc/ssl/certs/ssl-cert-snakeoil.pem:ro
+      - ${STACK_VOLUME}/wordpress/certbot/conf/live/${DOMAIN}/privkey.pem:/etc/ssl/private/ssl-cert-snakeoil.key:ro
     deploy:
       resources:
         limits:

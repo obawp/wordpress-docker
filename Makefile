@@ -66,6 +66,9 @@ mkdir_certbot:
 
 rmdir:
 	- sudo rm -Rf ${STACK_SRC}
+	- make --no-print-directory rmdir_db
+
+rmdir_db:
 	- sudo rm -Rf ${STACK_VOLUME}/mysql/data
 
 # It was needed to pass the fpm container Ip to the hosts file in the webserver container. I tried to avoid the restart twice but I think it is the best way to do it. This change is waste of time.
@@ -141,3 +144,39 @@ install:
 	make --no-print-directory cli_install_db
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -Rf /var/www/html/wp-content/plugins/akismet
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -f  /var/www/html/wp-content/plugins/hello.php
+
+install_smtp_plugin:
+	make cli cmd="wp plugin install wp-mail-smtp --activate"
+
+install_smtp_db:
+	make cli cmd="wp option update wp_mail_smtp '{ \
+	\"mail\": { \
+		\"from_email\": \"${SMTP_FROM}\", \
+		\"from_name\": \"${SMTP_FROM_NAME}\", \
+		\"mailer\": \"smtp\", \
+		\"return_path\": true \
+	}, \
+	\"smtp\": { \
+		\"host\": \"${SMTP_HOST}\", \
+		\"port\": ${SMTP_PORT}, \
+		\"encryption\": \"${SMTP_SECURE}\", \
+		\"auth\": true, \
+		\"user\": \"${SMTP_USER}\", \
+		\"pass\": \"${SMTP_PASS}\" \
+	} \
+	}' --format=json"
+
+install_smtp_config:
+	make cli cmd="wp config set WPMS_ON true --raw"
+	make cli cmd="wp config set WPMS_MAIL_FROM \"${SMTP_FROM}\""
+	make cli cmd="wp config set WPMS_MAIL_FROM_NAME \"${SMTP_FROM_NAME}\""
+	make cli cmd="wp config set WPMS_MAILER \"smtp\""
+	make cli cmd="wp config set WPMS_SMTP_HOST \"${SMTP_HOST}\""
+	make cli cmd="wp config set WPMS_SMTP_PORT ${SMTP_PORT}"
+	make cli cmd="wp config set WPMS_SSL \"${SMTP_SECURE}\""
+	make cli cmd="wp config set WPMS_SMTP_AUTH true --raw"
+	make cli cmd="wp config set WPMS_SMTP_USER \"${SMTP_USER}\""
+	make cli cmd="wp config set WPMS_SMTP_PASS \"${SMTP_PASS}\""
+
+test_smtp:
+	- make cli cmd="wp eval 'wp_mail(\"${SMTP_TEST_EMAIL}\", \"SMTP Test\", \"This is a test email.\");'"
