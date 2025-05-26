@@ -24,6 +24,7 @@ services:
       - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
       - WORDPRESS_TABLE_PREFIX=${DB_PREFIX}
       - WORDPRESS_DEBUG=${WORDPRESS_DEBUG}
+      - WORDPRESS_CONFIG_EXTRA=require_once ABSPATH . 'config.extra.php';
 
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}

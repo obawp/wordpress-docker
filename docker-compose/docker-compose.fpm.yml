@@ -23,6 +23,7 @@ services:
       - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
       - WORDPRESS_TABLE_PREFIX=${DB_PREFIX}
       - WORDPRESS_DEBUG=${WORDPRESS_DEBUG}
+      - WORDPRESS_CONFIG_EXTRA=require_once ABSPATH . 'config.extra.php';
 
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
@@ -34,6 +35,7 @@ services:
     extra_hosts:
       - "wordpress.local:${FPM_IP}"
     volumes:
+      - ./config/wp/config.extra.php:/var/www/html/config.extra.php
       - ${STACK_SRC}:/var/www/html
       - ${STACK_VOLUME}/wordpress/certbot/www/.well-known/acme-challenge/:/var/www/html/.well-known/acme-challenge/:rw
       - ${STACK_VOLUME}/wordpress/certbot/conf/:/etc/letsencrypt/:rw

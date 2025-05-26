@@ -59,8 +59,7 @@ rmdir:
 	- sudo rm -Rf ${STACK_SRC}
 	- sudo rm -Rf ${STACK_VOLUME}/mysql/data
 
-
-# I tried to avoid the restart twice but I think it is the best way to do it. This change is waste of time.
+# It was needed to pass the fpm container Ip to the hosts file in the webserver container. I tried to avoid the restart twice but I think it is the best way to do it. This change is waste of time.
 up:
 	- docker network create ${STACK_NAME}_cli_network || true
 	- docker network create ${STACK_NAME}_fpm_network || true
@@ -125,7 +124,7 @@ cli_install_db:
 	- make --no-print-directory cli cmd="wp core install --url=${WP_SITEURL} --title=${TITLE} --admin_user=${ADMIN_USER} --admin_password=${ADMIN_PASS} --admin_email=${ADMIN_EMAIL}"
 
 install:
-	make --no-print-directory cli_config_create
+	echo "<?php require_once ABSPATH . 'wp-config-docker.php';" > ${STACK_SRC}/wp-config.php
 	make --no-print-directory cli_install_db
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -Rf /var/www/html/wp-content/plugins/akismet
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -f  /var/www/html/wp-content/plugins/hello.php
