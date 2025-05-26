@@ -145,10 +145,22 @@ install:
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -Rf /var/www/html/wp-content/plugins/akismet
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -f  /var/www/html/wp-content/plugins/hello.php
 
-install_smtp_plugin:
+smtp_install:
 	make cli cmd="wp plugin install wp-mail-smtp --activate"
 
-install_smtp_db:
+smtp_config:
+	make cli cmd="wp config set WPMS_ON true --raw"
+	make cli cmd="wp config set WPMS_MAIL_FROM \"${SMTP_FROM}\""
+	make cli cmd="wp config set WPMS_MAIL_FROM_NAME \"${SMTP_FROM_NAME}\""
+	make cli cmd="wp config set WPMS_MAILER \"smtp\""
+	make cli cmd="wp config set WPMS_SMTP_HOST \"${SMTP_HOST}\""
+	make cli cmd="wp config set WPMS_SMTP_PORT ${SMTP_PORT}"
+	make cli cmd="wp config set WPMS_SSL \"${SMTP_SECURE}\""
+	make cli cmd="wp config set WPMS_SMTP_AUTH true --raw"
+	make cli cmd="wp config set WPMS_SMTP_USER \"${SMTP_USER}\""
+	make cli cmd="wp config set WPMS_SMTP_PASS \"${SMTP_PASS}\""
+
+smtp_db:
 	make cli cmd="wp option update wp_mail_smtp '{ \
 	\"mail\": { \
 		\"from_email\": \"${SMTP_FROM}\", \
@@ -165,18 +177,5 @@ install_smtp_db:
 		\"pass\": \"${SMTP_PASS}\" \
 	} \
 	}' --format=json"
-
-install_smtp_config:
-	make cli cmd="wp config set WPMS_ON true --raw"
-	make cli cmd="wp config set WPMS_MAIL_FROM \"${SMTP_FROM}\""
-	make cli cmd="wp config set WPMS_MAIL_FROM_NAME \"${SMTP_FROM_NAME}\""
-	make cli cmd="wp config set WPMS_MAILER \"smtp\""
-	make cli cmd="wp config set WPMS_SMTP_HOST \"${SMTP_HOST}\""
-	make cli cmd="wp config set WPMS_SMTP_PORT ${SMTP_PORT}"
-	make cli cmd="wp config set WPMS_SSL \"${SMTP_SECURE}\""
-	make cli cmd="wp config set WPMS_SMTP_AUTH true --raw"
-	make cli cmd="wp config set WPMS_SMTP_USER \"${SMTP_USER}\""
-	make cli cmd="wp config set WPMS_SMTP_PASS \"${SMTP_PASS}\""
-
-test_smtp:
+smtp_test:
 	- make cli cmd="wp eval 'wp_mail(\"${SMTP_TEST_EMAIL}\", \"SMTP Test\", \"This is a test email.\");'"

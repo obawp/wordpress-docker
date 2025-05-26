@@ -59,6 +59,33 @@ make perm_dev
 make install
 ```
 
+
+### Install SMTP
+
+```bash
+make smtp_install
+```
+
+To install the SMTP settings in your wp-config
+
+```bash
+make smtp_config
+```
+
+Or to install the SMTP settings in your database
+
+```bash
+make smtp_db
+```
+
+Test your email
+
+
+```bash
+make smtp_test
+```
+
+
 ## Access
 
 ### Running in Localhost
