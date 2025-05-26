@@ -70,6 +70,7 @@ services:
     networks:
       - wordpress_network
       - wp_cli_network
+      - pma_network
     deploy:
       resources:
         limits:
@@ -84,10 +85,12 @@ services:
       - "${PMAS_PORT}:443"
     environment:
       - PMA_HOST=db
-      # - PMA_USER=${PMA_USER}
-      # - PMA_PASSWORD=${PMA_PASSWORD}
-      # - PMA_DATABASE=${PMA_DATABASE}
-      # - MARIADB_ROOT_PASSWORD=${PMA_ROOT_PASSWORD}
+
+      # Careful: Uncomment these will expose your phpmyadmin login.
+      # - PMA_USER=${DB_USER}
+      # - PMA_PASSWORD=${DB_PASSWORD}
+      # - PMA_DATABASE=${DB_NAME}
+      # - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
     command: >
       sh -c "if [ ! -f /etc/phpmyadmin/config.secret.inc.php ]; then
               echo \"<?php\\n\\\$$cfg['blowfish_secret'] = '$(php -r 'echo bin2hex(random_bytes(32));')';\" > /etc/phpmyadmin/config.secret.inc.php;
@@ -97,7 +100,7 @@ services:
     depends_on:
       - db
     networks:
-      - wordpress_network
+      - pma_network
     volumes:
       - ${STACK_VOLUME}/wordpress/certbot/conf/live/${DOMAIN}/fullchain.pem:/etc/ssl/certs/ssl-cert-snakeoil.pem:ro
       - ${STACK_VOLUME}/wordpress/certbot/conf/live/${DOMAIN}/privkey.pem:/etc/ssl/private/ssl-cert-snakeoil.key:ro
@@ -112,6 +115,7 @@ networks:
   wp_cli_network:
     external: true
     name: ${STACK_NAME}_cli_network
+  pma_network:
   fpm_network:
     external: true
     name: ${STACK_NAME}_fpm_network
