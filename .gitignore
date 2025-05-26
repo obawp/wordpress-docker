@@ -1,3 +1,4 @@
 .env
 vol/
 src/
+config/wp/config.extra.php

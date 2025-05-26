@@ -59,7 +59,7 @@ services:
       - web
     volumes:
       - ${STACK_VOLUME}/wordpress/certbot/www/.well-known/acme-challenge/:/var/www/html/.well-known/acme-challenge/:rw
-      - ${STACK_VOLUME}/moodle/certbot/conf/:/etc/letsencrypt/:rw
+      - ${STACK_VOLUME}/wordpress/certbot/conf/:/etc/letsencrypt/:rw
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
   db:
     image: mariadb:10.6

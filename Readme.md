@@ -13,7 +13,7 @@ The Wordpress current version is the php7.4-apache but you can customize it if d
 ## Configuring
 
 - Create your `.env` based in `.env.example` file
-- Change the `docker-compose.yml` passwords that are exposed in this git repository
+- Create your `config/wp/config.extra.php` based in `config/wp/config.extra.sample.php` file
 
 ## Usage
 

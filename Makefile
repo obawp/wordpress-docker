@@ -28,13 +28,17 @@ run:
 	- docker run -d --name ${STACK_NAME}_aux ${REPO_NAME}
 
 mkdir:
+
 	- sudo mkdir -p ${STACK_VOLUME}/mysql/data
 	- sudo mkdir ./src/
 	- sudo chown $$USER:www-data ./src/
 	- sudo mkdir -p ${STACK_SRC}
+	- sudo chown $$USER:www-data ${VOLUME_DIR}
+	- sudo chown $$USER:www-data ${STACK_VOLUME}
 	- sudo chown $$USER:www-data ${STACK_VOLUME}/mysql/data
 	- sudo chown $$USER:www-data ${STACK_SRC}
 	- make --no-print-directory mkdir_certbot
+	make --no-print-directory copy_config_extra
 	- make --no-print-directory cp_aux
 
 cp_aux:
@@ -44,6 +48,11 @@ cp_aux:
 	else \
 		echo "Skipping src folder copy of the container ${STACK_NAME}_aux."; \
 	fi
+
+copy_config_extra:
+	@if [ ! -f ./config/wp/config.extra.php ]; then \
+		cp ./config/wp/config.extra.sample.php ./config/wp/config.extra.php; \
+    fi
 
 mkdir_certbot:
 	- sudo mkdir -p ${STACK_VOLUME}/wordpress/certbot/www/.well-known/acme-challenge/
@@ -124,7 +133,11 @@ cli_install_db:
 	- make --no-print-directory cli cmd="wp core install --url=${WP_SITEURL} --title=${TITLE} --admin_user=${ADMIN_USER} --admin_password=${ADMIN_PASS} --admin_email=${ADMIN_EMAIL}"
 
 install:
-	echo "<?php require_once ABSPATH . 'wp-config-docker.php';" > ${STACK_SRC}/wp-config.php
+	@if [ ! -f ${STACK_SRC}/wp-config.php ]; then \
+		sudo cp ${STACK_SRC}/wp-config-docker.php ${STACK_SRC}/wp-config.php; \
+		sudo chown $$USER:www-data ${STACK_SRC}/wp-config.php; \
+		sudo chmod 644 ${STACK_SRC}/wp-config.php; \
+	fi
 	make --no-print-directory cli_install_db
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -Rf /var/www/html/wp-content/plugins/akismet
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -f  /var/www/html/wp-content/plugins/hello.php
