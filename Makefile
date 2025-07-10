@@ -78,7 +78,7 @@ up:
 	- docker network create ${STACK_NAME}_fpm_network || true
 	@if [ "$(WEBSERVER)" = "fpm" ]; then \
 		FPM_IP=127.0.0.1 docker compose -p ${STACK_NAME} --project-directory ./ -f ./docker-compose/docker-compose.${WEBSERVER}.yml -f ./docker-compose/fpm/docker-compose.${FPM}.yml up -d --remove-orphans; \
-		FPM_IP=$$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${STACK_NAME}_${FPM}); \
+		FPM_IP=$$(docker inspect -f '{{.NetworkSettings.Networks.${STACK_NAME}_fpm_network.IPAddress}}' ${STACK_NAME}_web/); \
 		FPM_IP=$$FPM_IP docker compose -p ${STACK_NAME} --project-directory ./ -f ./docker-compose/docker-compose.${WEBSERVER}.yml -f ./docker-compose/fpm/docker-compose.${FPM}.yml up -d --remove-orphans; \
 	else \
 		docker compose -p ${STACK_NAME} --project-directory ./ -f ./docker-compose/docker-compose.${WEBSERVER}.yml up -d --remove-orphans; \
