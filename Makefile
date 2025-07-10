@@ -65,6 +65,10 @@ mkdir_certbot:
 	- sudo chown $$USER:$$USER ${STACK_VOLUME}/wordpress/certbot/conf
 	- sudo chmod 755 ${STACK_VOLUME}/wordpress/certbot/conf
 
+rmdir_certbot:
+	- sudo rm -Rf ${STACK_VOLUME}/wordpress/certbot/www/
+	- sudo rm -Rf ${STACK_VOLUME}/wordpress/certbot/conf/
+
 rmdir:
 	- sudo rm -Rf ${STACK_SRC}
 	- make --no-print-directory rmdir_db
