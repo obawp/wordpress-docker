@@ -1,4 +1,7 @@
 <?php
+//define( 'WP_HOME', 'https://wordpress.local' );
+//define( 'WP_SITEURL', 'https://wordpress.local' );
+
 define('FS_METHOD', 'direct');
 define('WORDPRESS_DEBUG', true);
 define('WORDPRESS_DEBUG_LOG', true);

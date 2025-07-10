@@ -52,6 +52,7 @@ cp_aux:
 copy_config_extra:
 	@if [ ! -f ./config/wp/config.extra.php ]; then \
 		cp ./config/wp/config.extra.sample.php ./config/wp/config.extra.php; \
+		sudo chown $$USER:www-data ./config/wp/config.extra.php; \
     fi
 
 mkdir_certbot:
