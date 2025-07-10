@@ -76,8 +76,26 @@ rmdir:
 rmdir_db:
 	- sudo rm -Rf ${STACK_VOLUME}/mysql/data
 
+cp_certbot:
+	docker cp ${STACK_NAME}_aux:/etc/letsencrypt ${STACK_VOLUME}/wordpress/certbot/conf;
+	sudo find ${STACK_VOLUME}/wordpress/certbot/conf -type d -exec chmod 0700 {} \;
+	sudo find ${STACK_VOLUME}/wordpress/certbot/conf -type f -exec chmod 0600 {} \;
+	sudo chown -R root:root ${STACK_VOLUME}/wordpress/certbot/conf
+
+pre_up:
+	- docker network rm  ${STACK_NAME}_apache -f || true
+	- docker network rm  ${STACK_NAME}_nginx -f || true
+	- docker network rm  ${STACK_NAME}_pma -f || true
+	if sudo test ! -d "${STACK_VOLUME}/wordpress/certbot/conf/live/${DOMAIN}"; then \
+		mkdir -p ${STACK_VOLUME}/wordpress/certbot/conf/live/${DOMAIN}; \
+		openssl req -x509 -newkey rsa:4096 -keyout ${STACK_VOLUME}/wordpress/certbot/conf/live/${DOMAIN}/privkey.pem -out ${STACK_VOLUME}/wordpress/certbot/conf/live/${DOMAIN}/fullchain.pem -sha256 -days 3650 -nodes -subj "/C=XX/ST=StateName/L=CityName/O=CompanyName/OU=CompanySectionName/CN=wordpress.local"; \
+	else \
+		echo "Certificate exists. Skipping."; \
+	fi
+
 # It was needed to pass the fpm container Ip to the hosts file in the webserver container. I tried to avoid the restart twice but I think it is the best way to do it. This change is waste of time.
 up:
+	make --no-print-directory pre_up
 	- docker network create ${STACK_NAME}_cli_network || true
 	- docker network create ${STACK_NAME}_fpm_network || true
 	@if [ "$(WEBSERVER)" = "fpm" ]; then \
