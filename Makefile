@@ -106,7 +106,7 @@ rm:
 	$(eval COMPOSE_FILES=-f ./docker-compose/docker-compose.${WEBSERVER}.yml)
 	@if [ "$(WEBSERVER)" = "fpm" ]; then \
 		COMPOSE_FILES="$$COMPOSE_FILES -f ./docker-compose/fpm/docker-compose.${FPM}.yml"; \
-		docker compose -p ${STACK_NAME} --project-directory ./ $$COMPOSE_FILES down --remove-orphans; \
+		FPM_IP=127.0.0.1 docker compose -p ${STACK_NAME} --project-directory ./ $$COMPOSE_FILES down --remove-orphans; \
 	else \
 		docker compose -p ${STACK_NAME} --project-directory ./ $(COMPOSE_FILES) down --remove-orphans; \
 	fi
