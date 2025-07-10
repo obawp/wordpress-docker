@@ -139,7 +139,7 @@ bash:
 
 # make cli cmd="wp --info"
 cli:
-	docker run -u www-data -it --rm \
+	docker run -u www-data --rm \
 		--user "$$(docker exec ${STACK_NAME}_web id -u www-data):$$(docker exec ${STACK_NAME}_web id -g www-data)" \
 		--name ${STACK_NAME}_cli \
 		--volumes-from ${STACK_NAME}_web \
@@ -150,13 +150,27 @@ cli:
 		-e WORDPRESS_DB_PASSWORD=${DB_PASSWORD} \
 		-e WORDPRESS_TABLE_PREFIX=${DB_PREFIX} \
 		-e HOME=/tmp \
-		wordpress:cli-php${PHP_VERSION} $(cmd)
+		wordpress:cli-php${PHP_VERSION} sh -c "$(cmd)"
+
+cli_it:
+	docker run -u www-data --rm \
+		--user "$$(docker exec ${STACK_NAME}_web id -u www-data):$$(docker exec ${STACK_NAME}_web id -g www-data)" \
+		--name ${STACK_NAME}_cli \
+		--volumes-from ${STACK_NAME}_web \
+		--network ${STACK_NAME}_cli_network \
+		-e WORDPRESS_DB_HOST=${STACK_NAME}_db \
+		-e WORDPRESS_DB_NAME=${DB_NAME} \
+		-e WORDPRESS_DB_USER=${DB_USER} \
+		-e WORDPRESS_DB_PASSWORD=${DB_PASSWORD} \
+		-e WORDPRESS_TABLE_PREFIX=${DB_PREFIX} \
+		-e HOME=/tmp \
+		wordpress:cli-php${PHP_VERSION} sh -c "$(cmd)"
 
 cli_config_create:
 	- make --no-print-directory cli cmd="wp config create --dbhost=${STACK_NAME}_db --dbname=${DB_NAME} --dbuser=${DB_USER} --dbpass=${DB_PASSWORD} --dbprefix=${DB_PREFIX} --skip-check"
 
 cli_install_db:
-	- make --no-print-directory cli cmd="wp core install --url=${WP_SITEURL} --title=${TITLE} --admin_user=${ADMIN_USER} --admin_password=${ADMIN_PASS} --admin_email=${ADMIN_EMAIL}"
+	- make --no-print-directory cli cmd="wp core install --url='${WP_SITEURL}' --title='${TITLE}' --admin_user='${ADMIN_USER}' --admin_password='${ADMIN_PASS}' --admin_email='${ADMIN_EMAIL}'"
 
 install:
 	@if [ ! -f ${STACK_SRC}/wp-config.php ]; then \
@@ -168,20 +182,50 @@ install:
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -Rf /var/www/html/wp-content/plugins/akismet
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -f  /var/www/html/wp-content/plugins/hello.php
 
+certbot_list:
+	- docker exec -it ${STACK_NAME}_certbot certbot certificates
+
+# Execute but not click enter to continue. Instead click ctrl+c to stop.
+certbot_init_dry:
+	- docker exec -it ${STACK_NAME}_certbot certbot certonly --dry-run --webroot --cert-name ${DOMAIN} -w /var/www/certbot  --email ${CERT_EMAIL} -d ${DOMAIN} --rsa-key-size 4096 --agree-tos --force-renewal --debug-challenges -v
+
+certbot_delete:
+	- docker exec -it ${STACK_NAME}_certbot certbot delete --cert-name ${DOMAIN} --non-interactive --quiet
+
+# This will delete the certificate and all its files.
+# restart the browser to see the changes.
+certbot_init:
+	- make --no-print-directory certbot_delete
+	- docker exec -u 0 ${STACK_NAME}_certbot rm -rf /etc/letsencrypt/live/${DOMAIN}
+	- docker exec -u 0 ${STACK_NAME}_certbot rm -rf /etc/letsencrypt/archive/${DOMAIN}
+	- docker exec -u 0 ${STACK_NAME}_certbot rm -rf /etc/letsencrypt/renewal/${DOMAIN}.conf
+	docker exec -it ${STACK_NAME}_certbot certbot certonly --webroot --cert-name ${DOMAIN} -w /var/www/certbot  --email ${CERT_EMAIL} -d ${DOMAIN} --rsa-key-size 4096 --agree-tos --force-renewal --debug-challenges -v
+	- make --no-print-directory certbot_bkp
+	- make --no-print-directory rm
+	- make --no-print-directory up
+
+certbot_bkp:
+	- mkdir -p ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/live/${DOMAIN}
+	- mkdir -p ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/archive/${DOMAIN}
+	- mkdir -p ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/renewal/
+	- docker cp ${STACK_NAME}_certbot:/etc/letsencrypt/live/${DOMAIN} ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/live/${DOMAIN}
+	- docker cp ${STACK_NAME}_certbot:/etc/letsencrypt/archive/${DOMAIN} ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/archive/${DOMAIN}
+	- docker cp ${STACK_NAME}_certbot:/etc/letsencrypt/renewal/${DOMAIN}.conf ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/renewal/${DOMAIN}.conf
+
 smtp_install:
 	make cli cmd="wp plugin install wp-mail-smtp --activate"
 
 smtp_config:
 	make cli cmd="wp config set WPMS_ON true --raw"
-	make cli cmd="wp config set WPMS_MAIL_FROM \"${SMTP_FROM}\""
-	make cli cmd="wp config set WPMS_MAIL_FROM_NAME \"${SMTP_FROM_NAME}\""
-	make cli cmd="wp config set WPMS_MAILER \"smtp\""
-	make cli cmd="wp config set WPMS_SMTP_HOST \"${SMTP_HOST}\""
+	make cli cmd="wp config set WPMS_MAIL_FROM '${SMTP_FROM}'"
+	make cli cmd="wp config set WPMS_MAIL_FROM_NAME '${SMTP_FROM_NAME}'"
+	make cli cmd="wp config set WPMS_MAILER 'smtp'"
+	make cli cmd="wp config set WPMS_SMTP_HOST '${SMTP_HOST}'"
 	make cli cmd="wp config set WPMS_SMTP_PORT ${SMTP_PORT}"
-	make cli cmd="wp config set WPMS_SSL \"${SMTP_SECURE}\""
+	make cli cmd="wp config set WPMS_SSL '${SMTP_SECURE}'"
 	make cli cmd="wp config set WPMS_SMTP_AUTH true --raw"
-	make cli cmd="wp config set WPMS_SMTP_USER \"${SMTP_USER}\""
-	make cli cmd="wp config set WPMS_SMTP_PASS \"${SMTP_PASS}\""
+	make cli cmd="wp config set WPMS_SMTP_USER '${SMTP_USER}'"
+	make cli cmd="wp config set WPMS_SMTP_PASS '${SMTP_PASS}'"
 
 smtp_db:
 	make cli cmd="wp option update wp_mail_smtp '{ \
@@ -202,3 +246,4 @@ smtp_db:
 	}' --format=json"
 smtp_test:
 	- make cli cmd="wp eval 'wp_mail(\"${SMTP_TEST_EMAIL}\", \"SMTP Test\", \"This is a test email.\");'"
+

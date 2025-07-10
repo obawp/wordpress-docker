@@ -32,6 +32,8 @@ services:
     networks:
       - wordpress_network
       - wp_cli_network
+      - fpm_network
+      - certbot_network
     depends_on:
       - db
     deploy:
@@ -44,13 +46,18 @@ services:
     container_name: ${STACK_NAME}_certbot
     restart: always
     networks:
-      - wordpress_network
+      - certbot_network
     depends_on:
       - web
     volumes:
-      - ${STACK_VOLUME}/wordpress/certbot/www/.well-known/acme-challenge/:/var/www/html/.well-known/acme-challenge/:rw
+      - ${STACK_VOLUME}/wordpress/certbot/www/:/var/www/certbot/:rw
       - ${STACK_VOLUME}/wordpress/certbot/conf/:/etc/letsencrypt/:rw
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    deploy:
+      resources:
+        limits:
+          cpus: ${CPUS}
+          memory: ${MEMORY}
   db:
     image: mariadb:10.6
     container_name: ${STACK_NAME}_db
@@ -114,4 +121,5 @@ networks:
     external: true
     name: ${STACK_NAME}_cli_network
   pma_network:
+  certbot_network:
   
