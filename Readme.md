@@ -14,6 +14,7 @@ The Wordpress current version is the php7.4-apache but you can customize it if d
 
 - Create your `.env` based in `.env.example` file
 - Create your `config/wp/config.extra.php` based in `config/wp/config.extra.sample.php` file
+- Create your `config/custom-php.ini` based in `config/custom-php-sample.ini` file
 
 ## Usage
 

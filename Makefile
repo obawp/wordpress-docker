@@ -1,19 +1,21 @@
 include ./.env
 export
 
-REPO_NAME := ${REPO}:php${PHP_VERSION}-${WEBSERVER}
+REPO_NAME := ${REPO}:php${IMAGE_PHP_VERSION}-${WEBSERVER}
 STACK_NAME := ${STACK}_wordpress
 STACK_VOLUME := ${VOLUME_DIR}/${STACK_NAME}
 STACK_SRC := ./src/${STACK_NAME}
 
 build:
-	- docker build --build-arg PHP_VERSION=${PHP_VERSION} --build-arg WEBSERVER=${WEBSERVER} -t ${REPO_NAME} ./docker-files/wordpress/${WEBSERVER}/
+	@echo "IMAGE_PHP_VERSION=${IMAGE_PHP_VERSION}, WEBSERVER=${WEBSERVER}"
+
+	- docker build --build-arg IMAGE_PHP_VERSION=${IMAGE_PHP_VERSION} --build-arg WEBSERVER=${WEBSERVER} -t ${REPO_NAME} ./docker-files/wordpress/${WEBSERVER}/
 
 build_verbose:
-	- docker build --build-arg PHP_VERSION=${PHP_VERSION} --build-arg WEBSERVER=${WEBSERVER} --progress=plain -t ${REPO_NAME} ./docker-files/wordpress/${WEBSERVER}/
+	- docker build --build-arg IMAGE_PHP_VERSION=${IMAGE_PHP_VERSION} --build-arg WEBSERVER=${WEBSERVER} --progress=plain -t ${REPO_NAME} ./docker-files/wordpress/${WEBSERVER}/
 
 build_no_cache:
-	- docker build --build-arg PHP_VERSION=${PHP_VERSION} --build-arg WEBSERVER=${WEBSERVER} --no-cache --pull -t ${REPO_NAME} ./docker-files/wordpress/${WEBSERVER}/
+	- docker build --build-arg IMAGE_PHP_VERSION=${IMAGE_PHP_VERSION} --build-arg WEBSERVER=${WEBSERVER} --no-cache --pull -t ${REPO_NAME} ./docker-files/wordpress/${WEBSERVER}/
 
 login:
 	- echo ${DOCKERHUB_PASS} | docker login -u ${DOCKERHUB_USER} --password-stdin
@@ -28,7 +30,6 @@ run:
 	- docker run -d --name ${STACK_NAME}_aux ${REPO_NAME}
 
 mkdir:
-
 	- sudo mkdir -p ${STACK_VOLUME}/mysql/data
 	- sudo mkdir ./src/
 	- sudo chown $$USER:www-data ./src/
@@ -98,10 +99,14 @@ up:
 	make --no-print-directory pre_up
 	- docker network create ${STACK_NAME}_cli_network || true
 	- docker network create ${STACK_NAME}_fpm_network || true
-	@if [ "$(WEBSERVER)" = "fpm" ]; then \
+	if [ "$(WEBSERVER)" = "fpm" ]; then \
 		FPM_IP=127.0.0.1 docker compose -p ${STACK_NAME} --project-directory ./ -f ./docker-compose/docker-compose.${WEBSERVER}.yml -f ./docker-compose/fpm/docker-compose.${FPM}.yml up -d --remove-orphans; \
-		FPM_IP=$$(docker inspect -f '{{.NetworkSettings.Networks.${STACK_NAME}_fpm_network.IPAddress}}' ${STACK_NAME}_web/); \
-		FPM_IP=$$FPM_IP docker compose -p ${STACK_NAME} --project-directory ./ -f ./docker-compose/docker-compose.${WEBSERVER}.yml -f ./docker-compose/fpm/docker-compose.${FPM}.yml up -d --remove-orphans; \
+		FPM_IP=$$(docker inspect -f '{{.NetworkSettings.Networks.${STACK_NAME}_fpm_network.IPAddress}}' ${STACK_NAME}_${FPM}); \
+		if [ -n "$$FPM_IP" ]; then \
+			FPM_IP=$$FPM_IP docker compose -p ${STACK_NAME} --project-directory ./ -f ./docker-compose/docker-compose.${WEBSERVER}.yml -f ./docker-compose/fpm/docker-compose.${FPM}.yml up -d --remove-orphans; \
+		else \
+			echo "FPM_IP not found, skipping second compose up."; \
+		fi; \
 	else \
 		docker compose -p ${STACK_NAME} --project-directory ./ -f ./docker-compose/docker-compose.${WEBSERVER}.yml up -d --remove-orphans; \
 	fi
@@ -126,13 +131,16 @@ mysql:
 rm:
 	- docker rm ${STACK_NAME}_aux -f
 	$(eval COMPOSE_FILES=-f ./docker-compose/docker-compose.${WEBSERVER}.yml)
-	@if [ "$(WEBSERVER)" = "fpm" ]; then \
+	- @if [ "$(WEBSERVER)" = "fpm" ]; then \
 		COMPOSE_FILES="$$COMPOSE_FILES -f ./docker-compose/fpm/docker-compose.${FPM}.yml"; \
 		FPM_IP=127.0.0.1 docker compose -p ${STACK_NAME} --project-directory ./ $$COMPOSE_FILES down --remove-orphans; \
 	else \
 		docker compose -p ${STACK_NAME} --project-directory ./ $(COMPOSE_FILES) down --remove-orphans; \
 	fi
 	- docker network rm ${STACK_NAME}_cli_network || true
+	- docker network rm  ${STACK_NAME}_apache -f || true
+	- docker network rm  ${STACK_NAME}_nginx -f || true
+	- docker network rm  ${STACK_NAME}_pma -f || true
 
 bash:
 	- docker exec -it -u 0 -w /var/www/html ${STACK_NAME}_web bash
@@ -150,7 +158,7 @@ cli:
 		-e WORDPRESS_DB_PASSWORD=${DB_PASSWORD} \
 		-e WORDPRESS_TABLE_PREFIX=${DB_PREFIX} \
 		-e HOME=/tmp \
-		wordpress:cli-php${PHP_VERSION} sh -c "$(cmd)"
+		wordpress:cli-php${IMAGE_PHP_VERSION} sh -c "$(cmd)"
 
 cli_it:
 	docker run -u www-data --rm \
@@ -164,7 +172,7 @@ cli_it:
 		-e WORDPRESS_DB_PASSWORD=${DB_PASSWORD} \
 		-e WORDPRESS_TABLE_PREFIX=${DB_PREFIX} \
 		-e HOME=/tmp \
-		wordpress:cli-php${PHP_VERSION} sh -c "$(cmd)"
+		wordpress:cli-php${IMAGE_PHP_VERSION} sh -c "$(cmd)"
 
 cli_config_create:
 	- make --no-print-directory cli cmd="wp config create --dbhost=${STACK_NAME}_db --dbname=${DB_NAME} --dbuser=${DB_USER} --dbpass=${DB_PASSWORD} --dbprefix=${DB_PREFIX} --skip-check"

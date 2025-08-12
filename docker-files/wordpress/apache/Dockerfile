@@ -1,6 +1,6 @@
-ARG PHP_VERSION
+ARG IMAGE_PHP_VERSION
 ARG WEBSERVER
-FROM wordpress:php$PHP_VERSION-$WEBSERVER
+FROM wordpress:php$IMAGE_PHP_VERSION-$WEBSERVER
 
 # Install dependencies for WP-CLI
 RUN apt-get update -y
@@ -12,6 +12,9 @@ RUN apt-get install -y htop
 RUN apt-get install -y git
 RUN apt-get install -y curl
 RUN apt-get install -y iputils-ping
+RUN apt-get install -y procps
+RUN apt-get install -y tzdata
+RUN apt-get install -y cron
 
 # Install MySQLi and PDO extensions
 RUN docker-php-ext-install mysqli
@@ -47,6 +50,7 @@ RUN a2ensite default-ssl.conf
 RUN rm /etc/apache2/sites-enabled/000-default.conf
 RUN rm /etc/apache2/sites-enabled/default-ssl.conf
 
+
 COPY wordpress.conf /etc/apache2/sites-available/wordpress.conf
 RUN sed -i -e 's|your-domain.com|wordpress.local|g' /etc/apache2/sites-available/wordpress.conf
 
@@ -55,6 +59,7 @@ WORKDIR /etc/letsencrypt/live/wordpress.local/
 RUN openssl req -x509 -newkey rsa:4096 -keyout privkey.pem -out fullchain.pem -sha256 -days 3650 -nodes -subj "/C=XX/ST=StateName/L=CityName/O=CompanyName/OU=CompanySectionName/CN=wordpress.local"
 WORKDIR /var/www/html
 RUN a2ensite wordpress.conf
+
 
 COPY cmd.sh /cmd.sh
 RUN chmod +x /cmd.sh

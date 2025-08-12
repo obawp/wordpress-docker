@@ -2,3 +2,4 @@
 vol/
 src/
 config/wp/config.extra.php
+config/php/custom-php.ini

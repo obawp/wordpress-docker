@@ -1,7 +1,7 @@
 services:
 
   web:
-    image: ${REPO}:php${PHP_VERSION}-${WEBSERVER}
+    image: ${REPO}:php${IMAGE_PHP_VERSION}-${WEBSERVER}
     container_name: ${STACK_NAME}_web
     restart: always
     ports:
@@ -26,13 +26,14 @@ services:
       - WORDPRESS_DEBUG=${WORDPRESS_DEBUG}
       - WORDPRESS_CONFIG_EXTRA=require_once ABSPATH . 'config.extra.php';
     volumes:
+      - ./config/wp/config.extra.php:/var/www/html/config.extra.php
       - ${STACK_SRC}:/var/www/html
       - ${STACK_VOLUME}/wordpress/certbot/www//:/var/www/certbot/:rw
       - ${STACK_VOLUME}/wordpress/certbot/conf/:/etc/letsencrypt/:rw
+      - ./config/php/custom-php.ini:/usr/local/etc/php/conf.d/custom-php.ini:ro
     networks:
       - wordpress_network
       - wp_cli_network
-      - fpm_network
       - certbot_network
     depends_on:
       - db
