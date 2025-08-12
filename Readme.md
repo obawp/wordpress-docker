@@ -4,7 +4,7 @@ This is a fast, simple and clean install for Wordpress with docker in few steps.
 
 ## Customize
 
-The Wordpress current version is the php7.4-apache but you can customize it if do you want in your `Dockerfile`.
+The PHP current version is 8.3 the but you can build your own image if do you want in your `Dockerfile`.
 
 ## Requirements
 
@@ -19,8 +19,6 @@ The Wordpress current version is the php7.4-apache but you can customize it if d
 ## Usage
 
 ### Building the image
-
-If do you want to use my image `antonio24073/wordpress:4.5-apache` you can put it in the `.env` and jump this step.
 
 ```bash
 make build
