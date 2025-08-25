@@ -40,6 +40,7 @@ mkdir:
 	- sudo chown $$USER:www-data ${STACK_SRC}
 	- make --no-print-directory mkdir_certbot
 	make --no-print-directory copy_config_extra
+	make --no-print-directory copy_custom_php_ini
 	- make --no-print-directory cp_aux
 
 cp_aux:
@@ -52,8 +53,16 @@ cp_aux:
 
 copy_config_extra:
 	@if [ ! -f ./config/wp/config.extra.php ]; then \
+		echo "Creating ./config/wp/config.extra.php"; \
 		cp ./config/wp/config.extra.sample.php ./config/wp/config.extra.php; \
 		sudo chown $$USER:www-data ./config/wp/config.extra.php; \
+    fi
+
+copy_custom_php_ini:
+	@if [ ! -f ./config/php/custom-php.ini ]; then \
+		echo "Creating ./config/php/custom-php.ini"; \
+		cp ./config/php/custom-php-sample.ini ./config/php/custom-php.ini; \
+		sudo chown $$USER:www-data ./config/php/custom-php.ini; \
     fi
 
 mkdir_certbot:
