@@ -5,7 +5,7 @@ services:
     container_name: ${STACK_NAME}_web
     restart: always
     ports:
-      - "127.0.0.1:${FPM_PORT}:${FPM_PORT}"
+      - "127.0.0.1:${FPM_PORT}:${FPM_PORT}" # don't expose FPM port publicly
     environment:
       - DOMAIN=${DOMAIN}
       - WEB_PORT=${WEB_PORT}
