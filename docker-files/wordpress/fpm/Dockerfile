@@ -4,7 +4,6 @@ FROM wordpress:php$IMAGE_PHP_VERSION-$WEBSERVER
 
 # Install dependencies for WP-CLI
 RUN apt-get update -y
-RUN apt-get install -y software-properties-common
 RUN apt-get install -y sudo
 RUN apt-get install -y unzip
 RUN apt-get install -y nano

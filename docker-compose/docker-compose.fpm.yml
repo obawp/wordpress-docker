@@ -1,11 +1,10 @@
 services:
 
   web:
+    runtime: runc
     image: ${REPO}:php${IMAGE_PHP_VERSION}-${WEBSERVER}
     container_name: ${STACK_NAME}_web
     restart: always
-    ports:
-      - "127.0.0.1:${FPM_PORT}:${FPM_PORT}" # don't expose FPM port publicly
     environment:
       - DOMAIN=${DOMAIN}
       - WEB_PORT=${WEB_PORT}
@@ -17,7 +16,7 @@ services:
       - CERT_ORG_UNIT=${CERT_ORG_UNIT}
       - TZ=${TZ}
 
-      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_HOST=${STACK_NAME}_db
       - WORDPRESS_DB_NAME=${DB_NAME}
       - WORDPRESS_DB_USER=${DB_USER}
       - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
@@ -45,6 +44,7 @@ services:
           cpus: ${CPUS}
           memory: ${MEMORY}
   certbot:
+    runtime: runc
     image: certbot/certbot:latest
     container_name: ${STACK_NAME}_certbot
     restart: always
@@ -62,6 +62,7 @@ services:
           cpus: ${CPUS}
           memory: ${MEMORY}
   db:
+    runtime: runc
     image: mariadb:10.6
     container_name: ${STACK_NAME}_db
     restart: always
@@ -85,14 +86,15 @@ services:
           cpus: ${CPUS}
           memory: ${MEMORY}
   pma:
+    runtime: runc
     image: phpmyadmin/phpmyadmin
     container_name: ${STACK_NAME}_pma
     restart: always
-    ports:
-      - "${HOST_IP}:${PMA_PORT}:80"
-      - "${HOST_IP}:${PMAS_PORT}:443"
+    # ports:
+    #   - "${HOST_IP}:${PMA_PORT}:80"
+    #   - "${HOST_IP}:${PMAS_PORT}:443"
     environment:
-      - PMA_HOST=db
+      - PMA_HOST=${STACK_NAME}_db
 
       # Careful: Uncomment these will expose your phpmyadmin login.
       # - PMA_USER=${DB_USER}
@@ -100,18 +102,46 @@ services:
       # - PMA_DATABASE=${DB_NAME}
       # - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
     command: >
-      sh -c "if [ ! -f /etc/phpmyadmin/config.secret.inc.php ]; then
+      sh -c "sed 's|/etc/ssl/certs/ssl-cert-snakeoil.pem|/etc/letsencrypt/live/${DOMAIN}/fullchain.pem|g' /etc/apache2/sites-available/default-ssl.conf > /tmp/default-ssl.conf &&
+            sed -i 's|/etc/ssl/private/ssl-cert-snakeoil.key|/etc/letsencrypt/live/${DOMAIN}/privkey.pem|g' /tmp/default-ssl.conf &&
+            mv /tmp/default-ssl.conf /etc/apache2/sites-available/default-ssl.conf &&
+            a2enmod ssl &&
+            a2ensite default-ssl &&
+            if [ ! -f /etc/phpmyadmin/config.secret.inc.php ]; then
               echo \"<?php\\n\\\$$cfg['blowfish_secret'] = '$(php -r 'echo bin2hex(random_bytes(32));')';\" > /etc/phpmyadmin/config.secret.inc.php;
-            fi &&
-            a2enmod ssl && a2ensite 000-default && a2ensite default-ssl &&
-            apache2-foreground"
+            fi && 
+            apache2ctl -D FOREGROUND &
+            while true; do
+                sleep 12h
+                apache2ctl graceful
+            done
+        "
     depends_on:
       - db
     networks:
       - pma_network
+      - traefik_overlay
     volumes:
+      - ${STACK_VOLUME}/wordpress/certbot/conf/:/etc/letsencrypt/:ro
       - ${STACK_VOLUME}/wordpress/certbot/conf/live/${DOMAIN}/fullchain.pem:/etc/ssl/certs/ssl-cert-snakeoil.pem:ro
       - ${STACK_VOLUME}/wordpress/certbot/conf/live/${DOMAIN}/privkey.pem:/etc/ssl/private/ssl-cert-snakeoil.key:ro
+    labels:
+      - "traefik.enable=true"
+
+      - "traefik.http.routers.${STACK_NAME}_pma.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${STACK_NAME}_pma.service=${STACK_NAME}_pma_serv"
+      - "traefik.http.services.${STACK_NAME}_pma_serv.loadbalancer.server.port=80"
+      - "traefik.http.routers.${STACK_NAME}_pma.entrypoints=pma"
+
+      - "traefik.http.routers.${STACK_NAME}_pmas.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${STACK_NAME}_pmas.service=${STACK_NAME}_pmas_serv"
+      - "traefik.http.services.${STACK_NAME}_pmas_serv.loadbalancer.server.port=443"
+      - "traefik.http.services.${STACK_NAME}_pmas_serv.loadbalancer.server.scheme=https"
+      - "traefik.http.routers.${STACK_NAME}_pmas.entrypoints=pmas"
+      - "traefik.http.routers.${STACK_NAME}_pmas.tls=true"
+      # - "traefik.http.routers.${STACK_NAME}_aaps.tls.certresolver=cloudflare"
+      - "traefik.http.routers.${STACK_NAME}_pmas.tls.domains[0].main=${SECOND_AND_TOP_LEVEL_DOMAIN}"
+      - "traefik.http.routers.${STACK_NAME}_pmas.tls.domains[0].sans=*.${SECOND_AND_TOP_LEVEL_DOMAIN}"
     deploy:
       resources:
         limits:
@@ -128,4 +158,6 @@ networks:
     name: ${STACK_NAME}_fpm_network
   pma_network:
   certbot_network:
+  traefik_overlay:
+    external: true
   

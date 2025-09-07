@@ -1,11 +1,12 @@
 services:
   apache:
+    runtime: runc 
     image: httpd:latest
     container_name: ${STACK_NAME}_apache
     restart: always
-    ports:
-      - "${HOST_IP}:${WEB_PORT}:${WEB_PORT}"
-      - "${HOST_IP}:${WEBS_PORT}:${WEBS_PORT}"
+    # ports:
+    #   - "${HOST_IP}:${WEB_PORT}:${WEB_PORT}"
+    #   - "${HOST_IP}:${WEBS_PORT}:${WEBS_PORT}"
     volumes:
       - ${STACK_SRC}:/var/www/html
       - ./config/fpm/apache/httpd.conf:/tmp/httpd.conf:ro
@@ -18,6 +19,7 @@ services:
       - WEBS_PORT=${WEBS_PORT}
     networks:
       - fpm_network
+      - traefik_overlay
     entrypoint: |
       sh -c "
         mkdir -p /var/log/apache2 && \
@@ -27,6 +29,7 @@ services:
         sed -i \"s/<VirtualHost \\\*:80>/<VirtualHost *:${WEB_PORT}>/g\" /usr/local/apache2/conf/extra/httpd-vhosts.conf && \
         sed -i \"s/Listen 80/Listen ${WEB_PORT}\\\nListen ${WEBS_PORT}/g\" /usr/local/apache2/conf/httpd.conf && \
         sed -i \"s/<VirtualHost \\\*:443>/<VirtualHost *:${WEBS_PORT}>/g\" /usr/local/apache2/conf/extra/httpd-vhosts.conf && \
+        sed -i 's|proxy:fcgi://web:9000|proxy:fcgi://${STACK_NAME}_web:9000|g' /usr/local/apache2/conf/extra/httpd-vhosts.conf && \
         ( \
             while true; do \
                 sleep 12h \
@@ -35,7 +38,27 @@ services:
         ) & \
         httpd-foreground \
       "
+    labels:
+      - "traefik.enable=true"
+
+      - "traefik.http.routers.${STACK_NAME}_web.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${STACK_NAME}_web.service=${STACK_NAME}_web_serv"
+      - "traefik.http.services.${STACK_NAME}_web_serv.loadbalancer.server.port=80"
+      - "traefik.http.services.${STACK_NAME}_web_serv.loadbalancer.server.scheme=http"
+      - "traefik.http.routers.${STACK_NAME}_web.entrypoints=web"
+
+      - "traefik.http.routers.${STACK_NAME}_webs.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${STACK_NAME}_webs.service=${STACK_NAME}_webs_serv"
+      - "traefik.http.services.${STACK_NAME}_webs_serv.loadbalancer.server.port=443"
+      - "traefik.http.services.${STACK_NAME}_webs_serv.loadbalancer.server.scheme=https"
+      - "traefik.http.routers.${STACK_NAME}_webs.entrypoints=webs"
+      - "traefik.http.routers.${STACK_NAME}_webs.tls=true"
+      # - "traefik.http.routers.${STACK_NAME}_webs.tls.certresolver=cloudflare"
+      - "traefik.http.routers.${STACK_NAME}_webs.tls.domains[0].main=${SECOND_AND_TOP_LEVEL_DOMAIN}"
+      - "traefik.http.routers.${STACK_NAME}_webs.tls.domains[0].sans=*.${SECOND_AND_TOP_LEVEL_DOMAIN}"
 networks:
   fpm_network:
     external: true
     name: ${STACK_NAME}_fpm_network
+  traefik_overlay:
+    external: true
