@@ -6,6 +6,12 @@ STACK_NAME := ${STACK}_wordpress
 STACK_VOLUME := ${VOLUME_DIR}/${STACK_NAME}
 STACK_SRC := ./src/${STACK_NAME}
 
+# with the domain and subdomain defined, get the second and top level domain
+# e.g. if DOMAIN=moodle.obawp.com and SUBDOMAIN=moodle. then
+ifneq ($(DOMAIN),$(SUBDOMAIN))
+SECOND_AND_TOP_LEVEL_DOMAIN=$(shell echo ${DOMAIN} | sed "s/^${SUBDOMAIN}//")
+endif
+
 build:
 	@echo "IMAGE_PHP_VERSION=${IMAGE_PHP_VERSION}, WEBSERVER=${WEBSERVER}"
 
@@ -30,10 +36,10 @@ run:
 	- docker run -d --name ${STACK_NAME}_aux ${REPO_NAME}
 
 mkdir:
-	- sudo mkdir -p ${STACK_VOLUME}/mysql/data
-	- sudo mkdir ./src/
+	mkdir -p ${STACK_VOLUME}/mysql/data
+	- mkdir ./src/
 	- sudo chown $$USER:www-data ./src/
-	- sudo mkdir -p ${STACK_SRC}
+	mkdir -p ${STACK_SRC}
 	- sudo chown $$USER:www-data ${VOLUME_DIR}
 	- sudo chown $$USER:www-data ${STACK_VOLUME}
 	- sudo chown $$USER:www-data ${STACK_VOLUME}/mysql/data
@@ -66,8 +72,8 @@ copy_custom_php_ini:
     fi
 
 mkdir_certbot:
-	- sudo mkdir -p ${STACK_VOLUME}/wordpress/certbot/www/.well-known/acme-challenge/
-	- sudo mkdir -p ${STACK_VOLUME}/wordpress/certbot/conf
+	mkdir -p ${STACK_VOLUME}/wordpress/certbot/www/.well-known/acme-challenge/
+	mkdir -p ${STACK_VOLUME}/wordpress/certbot/conf
 	- sudo chown $$USER:$$USER -R ${STACK_VOLUME}/wordpress/certbot
 	- sudo chmod 755 ${STACK_VOLUME}/wordpress/certbot
 	- sudo chown $$USER:$$USER ${STACK_VOLUME}/wordpress/certbot/www
@@ -121,18 +127,17 @@ up:
 	fi
 
 perm:
-	-  docker exec -u 0 ${STACK_NAME}_web chown www-data:www-data -R /var/www/html/
-	-  docker exec -u 0 ${STACK_NAME}_web find /var/www/html -type d -exec chmod 0755 {} \;
-	-  docker exec -u 0 ${STACK_NAME}_web find /var/www/html -type f -exec chmod 0644 {} \;
-
+	- docker exec -u 0 ${STACK_NAME}_web chown www-data:www-data -R /var/www/html/
+	- docker exec -u 0 ${STACK_NAME}_web find /var/www/html -type d -exec chmod 0755 {} \;
+	- docker exec -u 0 ${STACK_NAME}_web find /var/www/html -type f -exec chmod 0644 {} \;
+	
 perm_dev:
-	-  sudo chown $$USER:www-data -R ${STACK_SRC}
-	-  sudo find ${STACK_SRC} -type d -exec chmod 0775 {} \;
-	-  sudo find ${STACK_SRC} -type f -exec chmod 0664 {} \;
+	- sudo chown $$USER:www-data -R ${STACK_SRC}
+	- sudo find ${STACK_SRC} -type d -exec chmod 0775 {} \;
+	- sudo find ${STACK_SRC} -type f -exec chmod 0664 {} \;
 
 perm_db:
-	-  docker exec -u 0 ${STACK_NAME}_db chown -R mysql:mysql /var/lib/mysql
-
+	- docker exec -u 0 ${STACK_NAME}_db chown -R mysql:mysql /var/lib/mysql
 
 mysql:
 	- docker exec -it ${STACK_NAME}_db mysql -u root -p${MYSQL_ROOT_PASSWORD}
@@ -196,6 +201,7 @@ install:
 		sudo chmod 644 ${STACK_SRC}/wp-config.php; \
 	fi
 	make --no-print-directory cli_install_db
+
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -Rf /var/www/html/wp-content/plugins/akismet
 	- docker exec -u 0 -w /var/www/html/ ${STACK_NAME}_web rm -f  /var/www/html/wp-content/plugins/hello.php
 
@@ -222,9 +228,9 @@ certbot_init:
 	- make --no-print-directory up
 
 certbot_bkp:
-	- mkdir -p ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/live/${DOMAIN}
-	- mkdir -p ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/archive/${DOMAIN}
-	- mkdir -p ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/renewal/
+	mkdir -p ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/live/${DOMAIN}
+	mkdir -p ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/archive/${DOMAIN}
+	mkdir -p ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/renewal/
 	- docker cp ${STACK_NAME}_certbot:/etc/letsencrypt/live/${DOMAIN} ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/live/${DOMAIN}
 	- docker cp ${STACK_NAME}_certbot:/etc/letsencrypt/archive/${DOMAIN} ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/archive/${DOMAIN}
 	- docker cp ${STACK_NAME}_certbot:/etc/letsencrypt/renewal/${DOMAIN}.conf ${STACK_VOLUME}/backup/${CURRENT_BACKUP_DIR}/certbot/renewal/${DOMAIN}.conf
