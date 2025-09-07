@@ -27,6 +27,7 @@ services:
         sed -i \"s/<VirtualHost \\\*:80>/<VirtualHost *:${WEB_PORT}>/g\" /usr/local/apache2/conf/extra/httpd-vhosts.conf && \
         sed -i \"s/Listen 80/Listen ${WEB_PORT}\\\nListen ${WEBS_PORT}/g\" /usr/local/apache2/conf/httpd.conf && \
         sed -i \"s/<VirtualHost \\\*:443>/<VirtualHost *:${WEBS_PORT}>/g\" /usr/local/apache2/conf/extra/httpd-vhosts.conf && \
+        sed -i 's|proxy:fcgi://web:9000|proxy:fcgi://${STACK_NAME}_web:9000|g' /usr/local/apache2/conf/extra/httpd-vhosts.conf && \
         ( \
             while true; do \
                 sleep 12h \
