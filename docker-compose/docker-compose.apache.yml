@@ -147,20 +147,20 @@ services:
     labels:
       - "traefik.enable=true"
 
-      - "traefik.http.routers.${STACK_NAME}_pma.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.${STACK_NAME}_pma.service=${STACK_NAME}_pma_serv"
-      - "traefik.http.services.${STACK_NAME}_pma_serv.loadbalancer.server.port=80"
-      - "traefik.http.routers.${STACK_NAME}_pma.entrypoints=pma"
+      - "traefik.http.routers.${STACK_NAME}_p2082.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${STACK_NAME}_p2082.service=${STACK_NAME}_p2082_serv"
+      - "traefik.http.services.${STACK_NAME}_p2082_serv.loadbalancer.server.port=80"
+      - "traefik.http.routers.${STACK_NAME}_p2082.entrypoints=p2082"
 
-      - "traefik.http.routers.${STACK_NAME}_pmas.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.${STACK_NAME}_pmas.service=${STACK_NAME}_pmas_serv"
-      - "traefik.http.services.${STACK_NAME}_pmas_serv.loadbalancer.server.port=443"
-      - "traefik.http.services.${STACK_NAME}_pmas_serv.loadbalancer.server.scheme=https"
-      - "traefik.http.routers.${STACK_NAME}_pmas.entrypoints=pmas"
-      - "traefik.http.routers.${STACK_NAME}_pmas.tls=true"
+      - "traefik.http.routers.${STACK_NAME}_p2083.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${STACK_NAME}_p2083.service=${STACK_NAME}_p2083_serv"
+      - "traefik.http.services.${STACK_NAME}_p2083_serv.loadbalancer.server.port=443"
+      - "traefik.http.services.${STACK_NAME}_p2083_serv.loadbalancer.server.scheme=https"
+      - "traefik.http.routers.${STACK_NAME}_p2083.entrypoints=p2083"
+      - "traefik.http.routers.${STACK_NAME}_p2083.tls=true"
       # - "traefik.http.routers.${STACK_NAME}_aaps.tls.certresolver=cloudflare"
-      - "traefik.http.routers.${STACK_NAME}_pmas.tls.domains[0].main=${SECOND_AND_TOP_LEVEL_DOMAIN}"
-      - "traefik.http.routers.${STACK_NAME}_pmas.tls.domains[0].sans=*.${SECOND_AND_TOP_LEVEL_DOMAIN}"
+      - "traefik.http.routers.${STACK_NAME}_p2083.tls.domains[0].main=${SECOND_AND_TOP_LEVEL_DOMAIN}"
+      - "traefik.http.routers.${STACK_NAME}_p2083.tls.domains[0].sans=*.${SECOND_AND_TOP_LEVEL_DOMAIN}"
     deploy:
       resources:
         limits:
